@@ -1,98 +1,99 @@
 import json
-import os
 import subprocess
-import sys
 import time
+import requests
+import threading
 
+# আপনার টেলিগ্রাম বটের টোকেন এবং চ্যাট আইডি
+TELEGRAM_BOT_TOKEN = "8619498927:AAExQnFSEdYw7-q3hLxtWGa-FF1zV36S-jA"
+TELEGRAM_CHAT_ID = "7792153788"
 
-# প্রয়োজনীয় প্যাকেজ অটো-ইনস্টল করার ফাংশন
-def auto_install_packages():
-  # Python-এর requests লাইব্রেরি চেক ও ইনস্টল
-  try:
-    import requests
-  except ImportError:
-    print("[SYSTEM] 'requests' module not found. Installing...")
-    subprocess.check_call(
-        [sys.executable, "-m", "pip", "install", "requests"]
-    )
-    import requests
-
-  # Termux API প্যাকেজ (কমান্ডলাইন) চেক ও ইনস্টল
-  if subprocess.call(["which", "termux-sms-list"], stdout=subprocess.DEVNULL) != 0:
-    print("[SYSTEM] 'termux-api' package not found. Installing...")
-    os.system("pkg install termux-api -y")
-
-  return requests
-
-
-# প্যাকেজ অটো-ইনস্টল সম্পন্ন করে requests ইমপোর্ট করা
-requests = auto_install_packages()
-
-# আপনার বটের ব্যাকএন্ড API এন্ডপয়েন্ট URL
-SERVER_URL = "https://your-bot-server.com/api/verify-payment"
-
+def send_to_telegram(message):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "parse_mode": "Markdown"
+    }
+    try:
+        response = requests.post(url, json=payload)
+        return response.json()
+    except Exception as e:
+        print(f"Telegram Error: {e}")
 
 def get_latest_sms():
-  try:
-    output = subprocess.check_output(
-        ["termux-sms-list", "-l", "1"], stderr=subprocess.DEVNULL
-    )
-    sms_data = json.loads(output.decode("utf-8"))
-    if sms_data:
-      return sms_data[0]
-  except Exception as e:
-    print(f"Error reading SMS: {e}")
-  return None
-
-
-def send_to_backend(sender, full_message):
-  payload = {
-      "sender": sender,
-      "message": full_message,
-  }
-
-  while True:
     try:
-      response = requests.post(SERVER_URL, json=payload, timeout=10)
-      if response.status_code == 200:
-        print(f"[SUCCESS] Sent Full SMS from {sender}")
-        break
-      else:
-        print(f"[SERVER ERROR] Status {response.status_code}, retrying...")
-    except requests.exceptions.RequestException:
-      print("[NETWORK ERROR] Retrying in 10 seconds...")
-      time.sleep(10)
+        result = subprocess.run(['termux-sms-list', '-l', '1'], capture_output=True, text=True)
+        sms_list = json.loads(result.stdout)
+        if sms_list:
+            return sms_list[0]
+    except Exception as e:
+        print(f"SMS Read Error: {e}")
+    return None
 
+# টেলিগ্রাম থেকে কমান্ড চেক করার ফাংশন (যেমন: /status)
+def check_telegram_commands():
+    offset = 0
+    while True:
+        try:
+            url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates?offset={offset}&timeout=30"
+            response = requests.get(url).json()
+            if "result" in response:
+                for update in response["result"]:
+                    offset = update["update_id"] + 1
+                    if "message" in update and "text" in update["message"]:
+                        chat_id = str(update["message"]["chat"]["id"])
+                        text = update["message"]["text"]
+                        
+                        # যদি কেউ /status লেখে
+                        if text == "/status":
+                            reply_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+                            requests.post(reply_url, json={
+                                "chat_id": chat_id,
+                                "text": "🟢 *বট বর্তমানে সচল এবং লাইভ আছে!* SMS মনিটরিং চলছে...",
+                                "parse_mode": "Markdown"
+                            })
+        except Exception as e:
+            print(f"Command Check Error: {e}")
+        time.sleep(2)
 
 def main():
-  print("SMS Listener Running...")
-  last_processed_sms_id = None
+    print("SMS to Telegram Bot listener started...")
+    
+    # বট চালু হওয়ার সাথে সাথেই টেলিগ্রামে মেসেজ পাঠাবে
+    send_to_telegram("🚀 *বট সফলভাবে রান হয়েছে!*\n\nবট এখন সম্পূর্ণ সচল আছে এবং এসএমএস ট্র্যাক করছে। বটের অবস্থা জানতে `/status` লিখে পাঠান।")
+    
+    # ব্যাকগ্রাউন্ডে টেলিগ্রাম কমান্ড শোনার জন্য থ্রেড চালু করা
+    threading.Thread(target=check_telegram_commands, daemon=True).Start()
 
-  while True:
-    sms = get_latest_sms()
-    if sms:
-      sms_id = sms.get("_id")
-      sender = sms.get("number", "")
-      body = sms.get("body", "")
+    last_sms_id = None
+    initial_sms = get_latest_sms()
+    if initial_sms:
+        last_sms_id = initial_sms.get('_id')
 
-      if sms_id != last_processed_sms_id:
-        if (
-            "bKash" in sender
-            or "Nagad" in sender
-            or "16216" in sender
-            or "BKASH" in sender
-            or "NAGAD" in sender
-        ):
-          print(f"\n[NEW SMS RECEIVED]\nFrom: {sender}\nMessage: {body}")
-          send_to_backend(sender, body)
+    while True:
+        sms = get_latest_sms()
+        if sms:
+            current_id = sms.get('_id')
+            sender = sms.get('number', 'Unknown')
+            body = sms.get('body', '')
 
-        last_processed_sms_id = sms_id
+            if current_id != last_sms_id:
+                last_sms_id = current_id
 
-    time.sleep(3)
+                # বিকাশ, নগদ বা ১৬২১৬ থেকে আসা মেসেজ ফিল্টার করা
+                if any(x in sender for x in ["bKash", "Nagad", "16216", "BKASH", "NAGAD"]):
+                    date = sms.get('received', '')
+                    msg_text = (
+                        f"📩 *নতুন পেমেন্ট এসএমএস এসেছে!*\n\n"
+                        f"👤 *প্রেরক:* `{sender}`\n"
+                        f"📅 *সময়:* `{date}`\n"
+                        f"💬 *মেসেজ:* \n{body}"
+                    )
+                    send_to_telegram(msg_text)
+                    print(f"Sent SMS from {sender} to Telegram.")
 
+        time.sleep(3)
 
 if __name__ == "__main__":
-  main()
-
-
-
+    main()
