@@ -11,9 +11,9 @@ def send_control_panel(chat_id=TELEGRAM_CHAT_ID):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     
     text = (
-        f"🚀 *SMS Forwarder Bot অপ্টিমাইজড মোডে সচল!*\n\n"
+        f"🚀 *SMS Forwarder Bot সুপার ফাস্ট মোডে সচল!*\n\n"
         f"✨ *CONTROL PANEL* ✨\n"
-        f"⚙️ *স্ট্যাটাস:* `ONLINE (স্মার্ট ও ফাস্ট)`\n\n"
+        f"⚙️ *স্ট্যাটাস:* `ONLINE (ইনস্ট্যান্ট রেসপন্স)`\n\n"
         f"👇 নিচের বাটন ব্যবহার করুন:"
     )
     
@@ -61,7 +61,8 @@ def check_telegram_commands():
     offset = 0
     while True:
         try:
-            url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates?offset={offset}&timeout=5"
+            # বাটন রেসপন্স ফাস্ট করার জন্য timeout কমিয়ে ১ করা হয়েছে
+            url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates?offset={offset}&timeout=1"
             response = requests.get(url).json()
             if "result" in response:
                 for update in response["result"]:
@@ -73,7 +74,7 @@ def check_telegram_commands():
                         if "BOT STATUS CHECK" in text:
                             requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", json={
                                 "chat_id": chat_id,
-                                "text": "🟢 *বট সক্রিয় ও লাইভ আছে!*",
+                                "text": "🟢 *বট অত্যন্ত দ্রুত গতিতে সচল আছে!*",
                                 "parse_mode": "Markdown"
                             })
                         elif "BACKUP" in text:
@@ -109,10 +110,11 @@ def check_telegram_commands():
                                 })
         except Exception as e:
             print(f"Command Check Error: {e}")
-        time.sleep(1)
+        # কমান্ড চেকিং লুপ ফাস্ট করার জন্য স্লিপ একদম কমিয়ে দেওয়া হলো
+        time.sleep(0.2)
 
 def main():
-    print("Optimized SMS Listener Running...")
+    print("Instant Response SMS Listener Running...")
     send_control_panel()
     
     threading.Thread(target=check_telegram_commands, daemon=True).start()
@@ -145,7 +147,6 @@ def main():
                 })
                 print(f"Forwarded SMS from {sender}")
 
-        # আগের সময় ঠিক রাখা হলো যেন ব্যাটারি ও প্রসেসর ওভারলোড না হয়
         time.sleep(3)
 
 if __name__ == "__main__":
