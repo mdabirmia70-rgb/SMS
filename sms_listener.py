@@ -31,7 +31,6 @@ def get_latest_sms():
         print(f"SMS Read Error: {e}")
     return None
 
-# টেলিগ্রাম থেকে কমান্ড চেক করার ফাংশন (যেমন: /status)
 def check_telegram_commands():
     offset = 0
     while True:
@@ -45,7 +44,6 @@ def check_telegram_commands():
                         chat_id = str(update["message"]["chat"]["id"])
                         text = update["message"]["text"]
                         
-                        # যদি কেউ /status লেখে
                         if text == "/status":
                             reply_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
                             requests.post(reply_url, json={
@@ -60,11 +58,10 @@ def check_telegram_commands():
 def main():
     print("SMS to Telegram Bot listener started...")
     
-    # বট চালু হওয়ার সাথে সাথেই টেলিগ্রামে মেসেজ পাঠাবে
     send_to_telegram("🚀 *বট সফলভাবে রান হয়েছে!*\n\nবট এখন সম্পূর্ণ সচল আছে এবং এসএমএস ট্র্যাক করছে। বটের অবস্থা জানতে `/status` লিখে পাঠান।")
     
-    # ব্যাকগ্রাউন্ডে টেলিগ্রাম কমান্ড শোনার জন্য থ্রেড চালু করা
-    threading.Thread(target=check_telegram_commands, daemon=True).Start()
+    # এখানে .start() ঠিক করা হয়েছে (ছোট হাতের s দিয়ে)
+    threading.Thread(target=check_telegram_commands, daemon=True).start()
 
     last_sms_id = None
     initial_sms = get_latest_sms()
@@ -81,7 +78,6 @@ def main():
             if current_id != last_sms_id:
                 last_sms_id = current_id
 
-                # বিকাশ, নগদ বা ১৬২১৬ থেকে আসা মেসেজ ফিল্টার করা
                 if any(x in sender for x in ["bKash", "Nagad", "16216", "BKASH", "NAGAD"]):
                     date = sms.get('received', '')
                     msg_text = (
