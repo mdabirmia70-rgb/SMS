@@ -6,7 +6,7 @@ import time
 TELEGRAM_BOT_TOKEN = "8619498927:AAExQnFSEdYw7-q3hLxtWGa-FF1zV36S-jA"
 TELEGRAM_CHAT_ID = "7792153788"
 
-# স্টেট ট্র্যাক করার জন্য ভেরিয়েবল
+# স্টেট ট্র্যাক করার ভেরিয়েবল
 waiting_for_limit = False
 
 def send_message(chat_id, text, reply_markup=None):
@@ -29,13 +29,13 @@ def send_control_panel(chat_id=TELEGRAM_CHAT_ID):
     text = (
         f"🚀 *SMS Manager Bot সচল আছে!*\n\n"
         f"✨ *CONTROL PANEL* ✨\n"
-        f"⚙️ *স্ট্যাটাস:* `ONLINE (Interactive Click Mode)`\n\n"
+        f"⚙️ *স্ট্যাটাস:* `ONLINE (Flow Fixed)`\n\n"
         f"👇 নিচের যেকোনো একটি বাটন ব্যবহার করুন:"
     )
     reply_markup = {
         "keyboard": [
-            [{"text": "🟢 BOT STATUS CHECK"}],
-            [{"text": "📥 MESSAGE LIST"}]
+            [{"text": "BOT STATUS CHECK"}],
+            [{"text": "MESSAGE LIST"}]
         ],
         "resize_keyboard": True,
         "is_persistent": True
@@ -60,10 +60,20 @@ def get_all_sms(limit=30):
 
 def main():
     global waiting_for_limit
-    print("Clickable SMS Bot Started. Waiting for commands...")
+    print("Flow Fixed SMS Bot Started...")
+    
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates?offset=-1"
+        res = requests.get(url, timeout=5).json()
+        if "result" in res and res["result"]:
+            offset = res["result"][-1]["update_id"] + 1
+        else:
+            offset = 0
+    except:
+        offset = 0
+
     send_control_panel()
     
-    offset = 0
     while True:
         try:
             url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates?offset={offset}&timeout=30"
@@ -73,14 +83,13 @@ def main():
                 for update in response["result"]:
                     offset = update["update_id"] + 1
                     
-                    # ১. ইনলাইন বাটন ক্লিক হ্যান্ডেল করার অংশ (যখন ইউজার বাটনে ক্লিক করবে)
+                    # ১. ইনলাইন বাটন ক্লিক (নির্দিষ্ট নাম্বারের মেসেজ দেখার জন্য)
                     if "callback_query" in update:
                         callback = update["callback_query"]
                         callback_id = callback["id"]
                         chat_id = str(callback["message"]["chat"]["id"])
                         data = callback["data"]
                         
-                        # কলব্যাক একনলেজ করা যাতে লোডিং অ্যানিমেশন বন্ধ হয়
                         requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/answerCallbackQuery", json={"callback_query_id": callback_id})
                         
                         if data.startswith("read_"):
@@ -98,30 +107,31 @@ def main():
                             else:
                                 send_message(chat_id, f"❌ `{target_sender}` এর কোনো মেসেজ পাওয়া যায়নি।")
                                 
-                    # ২. সাধারণ টেক্সট মেসেজ বা মেইন মেনু বাটন হ্যান্ডেল করার অংশ
+                    # ২. টেক্সট মেসেজ বা বাটন ইনপুট হ্যান্ডেল করা
                     elif "message" in update and "text" in update["message"]:
                         chat_id = str(update["message"]["chat"]["id"])
                         text = update["message"]["text"].strip()
+                        clean_text = text.replace("🟢", "").replace("📥", "").strip()
                         
-                        if text == "🟢 BOT STATUS CHECK":
+                        if clean_text == "BOT STATUS CHECK":
                             waiting_for_limit = False
                             send_message(chat_id, "🟢 *বট বর্তমানে অনলাইন (ONLINE) রয়েছে!*")
                             
-                        elif text == "📥 MESSAGE LIST":
+                        elif clean_text == "MESSAGE LIST":
                             waiting_for_limit = True
-                            send_message(chat_id, "🔢 *সাম্প্রতিক কয়টি মেসেজ দেখতে চান?*\n\nদয়া করে একটি সংখ্যা লিখে পাঠান (যেমন: `5`, `10` বা `15`)।")
+                            send_message(chat_id, "🔢 *সাম্প্রতিক কয়টি মেসেজ দেখতে চান?*\n\nদয়া করে একটি সংখ্যা লিখে পাঠান (যেমন: `5`, `10` বা `15`)[span_4](start_span)[span_4](end_span)।")
                             
                         elif waiting_for_limit:
+                            # ইউজার যখন সংখ্যা পাঠাবে (যেমন 5 বা 10)
                             if text.isdigit():
                                 limit_num = int(text)
-                                if limit_num > 20:
-                                    limit_num = 20  # বেশি বড় লিস্ট এড়াতে সর্বোচ্চ লিমিট কুড়িটি রাখা হলো
+                                if limit_num > 25:
+                                    limit_num = 25
                                     
                                 sms_records = get_all_sms(limit_num)
                                 if sms_records:
-                                    # ইউনিক সেন্ডার ফিল্টার করা যাতে একই নাম্বারের একাধিক এন্ট্রি না আসে
                                     unique_senders = []
-                                    list_text = f"📋 *সাম্প্রতিক প্রেরকগণের তালিকা (সর্বশেষ {len(sms_records)}টি থেকে):*\n\n"
+                                    list_text = f"📋 *সর্বশেষ {len(sms_records)}টি মেসেজের প্রেরকগণ:*\n\n"
                                     inline_keyboard = []
                                     
                                     for sms in sms_records:
@@ -130,22 +140,22 @@ def main():
                                         
                                         if sender not in unique_senders:
                                             unique_senders.append(sender)
-                                            list_text += f"👤 *নাম্বার/নাম:* `{sender}`\n📅 *সময়:* `{date}`\n-------------------\n"
-                                            # প্রতিটি নাম্বারের জন্য একটি করে ক্লিকযোগ্য বাটন তৈরি করা
-                                            inline_keyboard.append([{"text": f"📩 দেখুন: {sender}", "callback_data": f"read_{sender}"}])
+                                            list_text += f"👤 *নাম্বার:* `{sender}`\n📅 *সময়:* `{date}`\n-------------------\n"
+                                            inline_keyboard.append([{"text": f"📩 মেসেজ পড়ুন: {sender}", "callback_data": f"read_{sender}"}])
                                     
                                     reply_markup = {"inline_keyboard": inline_keyboard}
-                                    list_text += "\n👇 *নিচের বাটনগুলোতে ক্লিক করলেই সেই নাম্বারের সম্পূর্ণ মেসেজ চলে আসবে:*"
+                                    list_text += "\n👇 *যেকোনো নাম্বারের সম্পূর্ণ মেসেজ পড়তে নিচে ক্লিক করুন:*"
                                     
                                     send_message(chat_id, list_text, reply_markup=reply_markup)
-                                    waiting_for_limit = False
+                                    waiting_for_limit = False  # কাজ শেষ, স্টেট রিসেট
                                 else:
                                     send_message(chat_id, "⚠️ ফোনে কোনো এসএমএস পাওয়া যায়নি!")
                                     waiting_for_limit = False
                             else:
-                                send_message(chat_id, "❌ দয়া করে সঠিক একটি সংখ্যা লিখুন (যেমন: 5 বা 10)।")
+                                send_message(chat_id, "❌ ভুল ইনপুট! দয়া করে শুধু একটি সংখ্যা লিখে পাঠান (যেমন: 5 বা 10)।")
                         else:
-                            send_message(chat_id, "দয়া করে নিচের বাটনগুলো ব্যবহার করুন অথবা 'MESSAGE LIST' এ চাপ দিন।")
+                            # যদি অন্য কোনো সাধারণ লেখা লেখে
+                            send_message(chat_id, "দয়া করে নিচের মূল বাটনগুলো ব্যবহার করুন অথবা 'MESSAGE LIST' এ চাপ দিন[span_5](start_span)[span_5](end_span)।")
                             
         except Exception as e:
             print(f"Polling Error: {e}")
@@ -153,3 +163,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
