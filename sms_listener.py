@@ -1,15 +1,39 @@
 import json
+import os
 import subprocess
+import sys
 import time
-import requests
 
-# Apnar bot-er backend API URL
+
+# প্রয়োজনীয় প্যাকেজ অটো-ইনস্টল করার ফাংশন
+def auto_install_packages():
+  # Python-এর requests লাইব্রেরি চেক ও ইনস্টল
+  try:
+    import requests
+  except ImportError:
+    print("[SYSTEM] 'requests' module not found. Installing...")
+    subprocess.check_call(
+        [sys.executable, "-m", "pip", "install", "requests"]
+    )
+    import requests
+
+  # Termux API প্যাকেজ (কমান্ডলাইন) চেক ও ইনস্টল
+  if subprocess.call(["which", "termux-sms-list"], stdout=subprocess.DEVNULL) != 0:
+    print("[SYSTEM] 'termux-api' package not found. Installing...")
+    os.system("pkg install termux-api -y")
+
+  return requests
+
+
+# প্যাকেজ অটো-ইনস্টল সম্পন্ন করে requests ইমপোর্ট করা
+requests = auto_install_packages()
+
+# আপনার বটের ব্যাকএন্ড API এন্ডপয়েন্ট URL
 SERVER_URL = "https://your-bot-server.com/api/verify-payment"
 
 
 def get_latest_sms():
   try:
-    # Termux API diye shobshesh 1-ti SMS pora
     output = subprocess.check_output(
         ["termux-sms-list", "-l", "1"], stderr=subprocess.DEVNULL
     )
@@ -24,7 +48,7 @@ def get_latest_sms():
 def send_to_backend(sender, full_message):
   payload = {
       "sender": sender,
-      "message": full_message,  # Pura message body pathano hochhe
+      "message": full_message,
   }
 
   while True:
@@ -51,7 +75,6 @@ def main():
       sender = sms.get("number", "")
       body = sms.get("body", "")
 
-      # Nothun SMS ashle ebong bKash/Nagad theke hole
       if sms_id != last_processed_sms_id:
         if (
             "bKash" in sender
@@ -65,9 +88,11 @@ def main():
 
         last_processed_sms_id = sms_id
 
-    # Proti 3 second por por SMS check korbe
     time.sleep(3)
 
 
 if __name__ == "__main__":
   main()
+
+
+
