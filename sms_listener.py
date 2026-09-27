@@ -11,13 +11,12 @@ def send_control_panel(chat_id=TELEGRAM_CHAT_ID):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     
     text = (
-        f"🚀 *SMS Forwarder Bot সচল হয়েছে!*\n\n"
+        f"🚀 *SMS Forwarder Bot অপ্টিমাইজড মোডে সচল!*\n\n"
         f"✨ *CONTROL PANEL* ✨\n"
-        f"⚙️ *বর্তমান স্ট্যাটাস:* `ONLINE (লাইভ আছে)`\n\n"
-        f"👇 নিচের বাটন চেপে ব্যাকআপ বা স্ট্যাটাস চেক করুন:"
+        f"⚙️ *স্ট্যাটাস:* `ONLINE (স্মার্ট ও ফাস্ট)`\n\n"
+        f"👇 নিচের বাটন ব্যবহার করুন:"
     )
     
-    # ব্যাকআপ এবং স্ট্যাটাস চেক বাটন ডিজাইন
     reply_markup = {
         "keyboard": [
             [{"text": "⚡ BOT STATUS CHECK 📊"}],
@@ -50,7 +49,6 @@ def get_latest_sms():
 
 def get_multiple_sms(limit=10):
     try:
-        # টার্মাক্স থেকে শেষ ১০টি এসএমএস একসাথে নেওয়ার জন্য
         result = subprocess.run(['termux-sms-list', '-l', str(limit)], capture_output=True, text=True)
         sms_list = json.loads(result.stdout)
         if sms_list:
@@ -63,7 +61,7 @@ def check_telegram_commands():
     offset = 0
     while True:
         try:
-            url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates?offset={offset}&timeout=30"
+            url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates?offset={offset}&timeout=5"
             response = requests.get(url).json()
             if "result" in response:
                 for update in response["result"]:
@@ -75,17 +73,16 @@ def check_telegram_commands():
                         if "BOT STATUS CHECK" in text:
                             requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", json={
                                 "chat_id": chat_id,
-                                "text": "🟢 *বটের বর্তমান স্ট্যাটাস:* `অনলাইন (ON) - এসএমএস মনিটরিং চলছে`",
+                                "text": "🟢 *বট সক্রিয় ও লাইভ আছে!*",
                                 "parse_mode": "Markdown"
                             })
                         elif "BACKUP" in text:
                             requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", json={
                                 "chat_id": chat_id,
-                                "text": "📂 *ব্যাকআপ প্রসেস শুরু হয়েছে...* সাম্প্রতিক মেসেজগুলো পাঠানো হচ্ছে।",
+                                "text": "📂 *ব্যাকআপ পাঠানো হচ্ছে...*",
                                 "parse_mode": "Markdown"
                             })
                             
-                            # শেষ ১০টি এসএমএস ফেচ করে টেলিগ্রামে পাঠানো
                             sms_records = get_multiple_sms(10)
                             if sms_records:
                                 for sms in sms_records:
@@ -95,7 +92,7 @@ def check_telegram_commands():
                                     
                                     backup_text = (
                                         f"📦 *[SMS BACKUP]*\n\n"
-                                        f"👤 *প্রerক:* `{sender}`\n"
+                                        f"👤 *প্রেরক:* `{sender}`\n"
                                         f"📅 *সময়:* `{date}`\n"
                                         f"💬 *মেসেজ:* \n{body}"
                                     )
@@ -104,7 +101,6 @@ def check_telegram_commands():
                                         "text": backup_text,
                                         "parse_mode": "Markdown"
                                     })
-                                    time.sleep(0.5) # ফ্লাডিং রোধ করতে সামান্য বিরতি
                             else:
                                 requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", json={
                                     "chat_id": chat_id,
@@ -113,10 +109,10 @@ def check_telegram_commands():
                                 })
         except Exception as e:
             print(f"Command Check Error: {e}")
-        time.sleep(2)
+        time.sleep(1)
 
 def main():
-    print("SMS Listener Running with Backup Button...")
+    print("Optimized SMS Listener Running...")
     send_control_panel()
     
     threading.Thread(target=check_telegram_commands, daemon=True).start()
@@ -149,6 +145,7 @@ def main():
                 })
                 print(f"Forwarded SMS from {sender}")
 
+        # আগের সময় ঠিক রাখা হলো যেন ব্যাটারি ও প্রসেসর ওভারলোড না হয়
         time.sleep(3)
 
 if __name__ == "__main__":
