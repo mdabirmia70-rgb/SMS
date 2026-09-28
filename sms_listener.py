@@ -7,7 +7,6 @@ from datetime import datetime
 TELEGRAM_BOT_TOKEN = "8619498927:AAExQnFSEdYw7-q3hLxtWGa-FF1zV36S-jA"
 TELEGRAM_CHAT_ID = "7792153788"
 
-# বর্তমান অবস্থা এবং নির্বাচিত প্রেরক ট্র্যাক করার গ্লোবাল ভেরিয়েবল
 current_state = None
 selected_sender = None
 
@@ -31,7 +30,7 @@ def send_control_panel(chat_id=TELEGRAM_CHAT_ID):
     text = (
         f"🚀 *এসএমএস ম্যানেজার বট সচল আছে!*\n\n"
         f"✨ *কন্ট্রোল প্যানেল* ✨\n"
-        f"⚙️ *স্ট্যাটাস:* `অনলাইন (সঠিক সিকোয়েন্স মোড)`\n\n"
+        f"⚙️ *স্ট্যাটাস:* `অনলাইন (এক্সাক্ট ম্যাচ মোড)`\n\n"
         f"👇 নিচের যেকোনো একটি বাটন ব্যবহার করুন:"
     )
     reply_markup = {
@@ -44,9 +43,8 @@ def send_control_panel(chat_id=TELEGRAM_CHAT_ID):
     }
     send_message(chat_id, text, reply_markup)
 
-def get_all_sms(limit=150):
+def get_all_sms(limit=200):
     try:
-        # ফোন থেকে নির্দিষ্ট লিমিট অনুযায়ী এসএমএস ফেচ করা
         result = subprocess.run(
             ['termux-sms-list', '-l', str(limit)], 
             capture_output=True, 
@@ -56,8 +54,6 @@ def get_all_sms(limit=150):
         if result.returncode == 0 and result.stdout.strip():
             sms_list = json.loads(result.stdout)
             if sms_list:
-                # মেসেজগুলোকে সঠিক সময় বা সিরিয়াল অনুযায়ী সাজানো (যাতে উল্টাপাল্টা না হয়)
-                # সাধারণত টার্মাক্স রিসিভড টাইম বা ডেট ফরম্যাটে দেয়, সেটিকে সাজানো হচ্ছে
                 try:
                     sms_list.sort(key=lambda x: x.get('received', ''), reverse=True)
                 except:
@@ -69,7 +65,7 @@ def get_all_sms(limit=150):
 
 def main():
     global current_state, selected_sender
-    print("বট সফলভাবে চালু হয়েছে...")
+    print("Exact Match SMS Bot Started...")
     
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates?offset=-1"
@@ -92,7 +88,6 @@ def main():
                 for update in response["result"]:
                     offset = update["update_id"] + 1
                     
-                    # ১. ইনলাইন বাটন ক্লিক হ্যান্ডেল করা
                     if "callback_query" in update:
                         callback = update["callback_query"]
                         callback_id = callback["id"]
@@ -104,9 +99,8 @@ def main():
                         if data.startswith("select_"):
                             selected_sender = data.replace("select_", "")
                             current_state = "WAITING_FOR_COUNT"
-                            send_message(chat_id, f"📱 *নির্বাচিত প্রেরক:* `{selected_sender}`\n\n🔢 *এই নাম্বারের কয়টি মেসেজ দেখতে চান?*\n(দয়া করে একটি সংখ্যা লিখে পাঠান, যেমন: `1`, `2`, `5` বা `10`)")
+                            send_message(chat_id, f"📱 *নির্বাচিত প্রেরক:* `{selected_sender}`\n\n🔢 *এই নির্দিষ্ট প্রেরকের কয়টি মেসেজ দেখতে চান?*\n(দয়া করে একটি সংখ্যা লিখে পাঠান, যেমন: `1`, `2`, `5`)")
                             
-                    # ২. টেক্সট মেসেজ ও কিবোর্ড বাটন ইনপুট হ্যান্ডেল করা
                     elif "message" in update and "text" in update["message"]:
                         chat_id = str(update["message"]["chat"]["id"])
                         text = update["message"]["text"].strip()
@@ -118,13 +112,13 @@ def main():
                             
                         elif clean_text == "MESSAGE LIST":
                             current_state = "WAITING_FOR_LIMIT"
-                            send_message(chat_id, "🔢 *সাম্প্রতিক কয়টি মেসেজ লিস্ট দেখতে চান?*\n\nদয়া করে একটি সংখ্যা লিখে পাঠান (যেমন: `5`, `10` বা `15`).")
+                            send_message(chat_id, "🔢 *সাম্প্রতিক কয়টি মেসেজ লিস্ট দেখতে চান?*\n\nদয়া করে একটি সংখ্যা লিখে পাঠান (যেমন: `10`, `20` বা `30`).")
                             
                         elif current_state == "WAITING_FOR_LIMIT":
                             if text.isdigit():
                                 limit_num = int(text)
-                                if limit_num > 40:
-                                    limit_num = 40
+                                if limit_num > 50:
+                                    limit_num = 50
                                     
                                 sms_records = get_all_sms(limit_num)
                                 if sms_records:
@@ -138,11 +132,11 @@ def main():
                                         
                                         if sender not in unique_senders:
                                             unique_senders.append(sender)
-                                            list_text += f"👤 *নাম্বার:* `{sender}`\n📅 *সময়:* `{date}`\n-------------------\n"
-                                            inline_keyboard.append([{"text": f"👉 নির্বাচন করুন: {sender}", "callback_data": f"select_{sender}"}])
+                                            list_text += f"👤 *নাম্বার/প্রেরক:* `{sender}`\n📅 *সময়:* `{date}`\n-------------------\n"
+                                            inline_keyboard.append([{"text": f"👉 {sender}", "callback_data": f"select_{sender}"}])
                                     
                                     reply_markup = {"inline_keyboard": inline_keyboard}
-                                    list_text += "\n👇 *যেকোনো নাম্বারের মেসেজ দেখতে নিচে ক্লিক করুন:*"
+                                    list_text += "\n👇 *যেকোনো প্রেরকের ওপর ক্লিক করুন:*"
                                     
                                     send_message(chat_id, list_text, reply_markup=reply_markup)
                                     current_state = None
@@ -150,25 +144,24 @@ def main():
                                     send_message(chat_id, "⚠️ ফোনে কোনো এসএমএস পাওয়া যায়নি!")
                                     current_state = None
                             else:
-                                send_message(chat_id, "❌ ভুল ইনপুট! দয়া করে শুধু একটি সংখ্যা লিখে পাঠান (যেমন: 5 বা 10)।")
+                                send_message(chat_id, "❌ ভুল ইনপুট! দয়া করে শুধু একটি সংখ্যা লিখে পাঠান (যেমন: 10 বা 20)।")
                                 
                         elif current_state == "WAITING_FOR_COUNT":
                             if text.isdigit():
                                 count_num = int(text)
-                                # ১৫০টি মেসেজ লোড করে সঠিক অর্ডারে ফিল্টার করা হচ্ছে
-                                sms_records = get_all_sms(150)
+                                # পর্যাপ্ত মেসেজ (২০০টি) ফেচ করে একদম নিখুঁতভাবে (Exact Match) ফিল্টার করা হচ্ছে
+                                sms_records = get_all_sms(200)
                                 
                                 matched_sms = []
                                 for s in sms_records:
-                                    s_num = str(s.get('number', '')).strip().lower()
-                                    target = str(selected_sender).strip().lower()
-                                    if target in s_num or s_num in target:
+                                    s_num = str(s.get('number', '')).strip()
+                                    # এখানে হুবহু (Exact) মেলানো হচ্ছে যাতে অন্য কোনো নাম বা অফার মিক্স না হয়
+                                    if s_num == selected_sender:
                                         matched_sms.append(s)
                                         
                                 if matched_sms:
-                                    # ব্যবহারকারী যতগুলো দেখতে চেয়েছেন ঠিক ততগুলো নেওয়া হচ্ছে
                                     limited_sms = matched_sms[:count_num]
-                                    result_msg = f"🔍 *`{selected_sender}` থেকে প্রাপ্ত সর্বশেষ {len(limited_sms)}টি মেসেজ:*\n\n"
+                                    result_msg = f"🔍 *`{selected_sender}` থেকে প্রাপ্ত নির্দিষ্ট {len(limited_sms)}টি মেসেজ:*\n\n"
                                     
                                     for sms in limited_sms:
                                         body = sms.get('body', '')
