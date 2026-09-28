@@ -30,7 +30,7 @@ def send_control_panel(chat_id=TELEGRAM_CHAT_ID):
     text = (
         f"🚀 *এসএমএস ম্যানেজার বট সচল আছে!*\n\n"
         f"✨ *কন্ট্রোল প্যানেল* ✨\n"
-        f"⚙️ *স্ট্যাটাস:* `অনলাইন (এক্সাক্ট ম্যাচ মোড)`\n\n"
+        f"⚙️ *স্ট্যাটাস:* `অনলাইন (পারফেক্ট কাউন্ট মোড)`\n\n"
         f"👇 নিচের যেকোনো একটি বাটন ব্যবহার করুন:"
     )
     reply_markup = {
@@ -43,8 +43,9 @@ def send_control_panel(chat_id=TELEGRAM_CHAT_ID):
     }
     send_message(chat_id, text, reply_markup)
 
-def get_all_sms(limit=200):
+def get_all_sms(limit=300):
     try:
+        # সবসময় পর্যাপ্ত পরিমাণ (ডিফল্ট ৩০০টি) মেসেজ ফেচ করা যাতে কোনো মেসেজ বাদ না পড়ে
         result = subprocess.run(
             ['termux-sms-list', '-l', str(limit)], 
             capture_output=True, 
@@ -65,7 +66,7 @@ def get_all_sms(limit=200):
 
 def main():
     global current_state, selected_sender
-    print("Exact Match SMS Bot Started...")
+    print("Perfect Count SMS Bot Started...")
     
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates?offset=-1"
@@ -116,24 +117,29 @@ def main():
                             
                         elif current_state == "WAITING_FOR_LIMIT":
                             if text.isdigit():
-                                limit_num = int(text)
-                                if limit_num > 50:
-                                    limit_num = 50
+                                display_limit = int(text)
+                                if display_limit > 50:
+                                    display_limit = 50
                                     
-                                sms_records = get_all_sms(limit_num)
+                                # প্রেরকদের লিস্ট দেখানোর জন্য ব্যাকগ্রাউন্ড থেকে বড় ডাটা লোড করা
+                                sms_records = get_all_sms(300)
                                 if sms_records:
                                     unique_senders = []
-                                    list_text = f"📋 *সর্বশেষ {len(sms_records)}টি মেসেজ থেকে প্রাপ্ত প্রেরকগণ:*\n\n"
+                                    list_text = f"📋 *সাম্প্রতিক মেসেজগুলো থেকে প্রাপ্ত প্রেরকগণ:*\n\n"
                                     inline_keyboard = []
                                     
+                                    count = 0
                                     for sms in sms_records:
                                         sender = sms.get('number', 'Unknown')
                                         date = sms.get('received', 'N/A')
                                         
                                         if sender not in unique_senders:
                                             unique_senders.append(sender)
-                                            list_text += f"👤 *নাম্বার/প্রেরক:* `{sender}`\n📅 *সময়:* `{date}`\n-------------------\n"
+                                            list_text += f"👤 *প্রেরক:* `{sender}`\n📅 *শেষ সময়:* `{date}`\n-------------------\n"
                                             inline_keyboard.append([{"text": f"👉 {sender}", "callback_data": f"select_{sender}"}])
+                                            count += 1
+                                            if count >= display_limit:
+                                                break
                                     
                                     reply_markup = {"inline_keyboard": inline_keyboard}
                                     list_text += "\n👇 *যেকোনো প্রেরকের ওপর ক্লিক করুন:*"
@@ -149,19 +155,18 @@ def main():
                         elif current_state == "WAITING_FOR_COUNT":
                             if text.isdigit():
                                 count_num = int(text)
-                                # পর্যাপ্ত মেসেজ (২০০টি) ফেচ করে একদম নিখুঁতভাবে (Exact Match) ফিল্টার করা হচ্ছে
-                                sms_records = get_all_sms(200)
+                                # ফুল ডাটা (৩০০টি) থেকে নির্দিষ্ট প্রেরকের সব মেসেজ ফিল্টার করা
+                                sms_records = get_all_sms(300)
                                 
                                 matched_sms = []
                                 for s in sms_records:
                                     s_num = str(s.get('number', '')).strip()
-                                    # এখানে হুবহু (Exact) মেলানো হচ্ছে যাতে অন্য কোনো নাম বা অফার মিক্স না হয়
                                     if s_num == selected_sender:
                                         matched_sms.append(s)
                                         
                                 if matched_sms:
                                     limited_sms = matched_sms[:count_num]
-                                    result_msg = f"🔍 *`{selected_sender}` থেকে প্রাপ্ত নির্দিষ্ট {len(limited_sms)}টি মেসেজ:*\n\n"
+                                    result_msg = f"🔍 *`{selected_sender}` থেকে প্রাপ্ত সর্বশেষ {len(limited_sms)}টি মেসেজ:*\n\n"
                                     
                                     for sms in limited_sms:
                                         body = sms.get('body', '')
